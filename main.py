@@ -1,123 +1,203 @@
+# -*- coding: utf-8 -*-
+
+# Form implementation generated from reading ui file 'D:\opencv\ui\Gujarathi_lang_recognition\demo2.ui'
+#
+# Created by: PyQt5 UI code generator 5.11.3
+#
+# WARNING! All changes made in this file will be lost!
+
+from PyQt5 import QtCore, QtGui, QtWidgets
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from PIL import Image
-import seaborn as sns
-import cv2
-import random
-import os
-import imageio.v2 as imageio
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix
-from collections import Counter
-from imblearn.over_sampling import SMOTE
+from keras.preprocessing import image
 from keras.models import Sequential
-from keras.layers import Dense, Flatten
-from keras.applications.resnet import ResNet50
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from keras.layers import Dense
+from keras.models import model_from_json
+#initialize nn
+from keras.layers import Conv2D
+from keras.layers import MaxPooling2D
+from keras.layers import Flatten
+#convert pooling features space to large feature vector for fully
+#connected layer 
+from keras.preprocessing.image import ImageDataGenerator
+from keras.layers import BatchNormalization
+from keras.layers import Dropout
 
-from keras.callbacks import EarlyStopping
 
-# Suppress warnings
-import warnings
-warnings.simplefilter("ignore", UserWarning)
 
-# TensorFlow memory management (optional)
-import tensorflow as tf
-gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-    for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu, True)
+class Ui_MainWindow(object):
+    def setupUi(self, MainWindow):
+        MainWindow.setObjectName("MainWindow")
+        MainWindow.resize(800, 600)
+        self.centralwidget = QtWidgets.QWidget(MainWindow)
+        self.centralwidget.setObjectName("centralwidget")
+        self.BrowseImage = QtWidgets.QPushButton(self.centralwidget)
+        self.BrowseImage.setGeometry(QtCore.QRect(160, 370, 151, 51))
+        self.BrowseImage.setObjectName("BrowseImage")
+        self.imageLbl = QtWidgets.QLabel(self.centralwidget)
+        self.imageLbl.setGeometry(QtCore.QRect(200, 80, 361, 261))
+        self.imageLbl.setFrameShape(QtWidgets.QFrame.Box)
+        self.imageLbl.setText("")
+        self.imageLbl.setObjectName("imageLbl")
+        self.label_2 = QtWidgets.QLabel(self.centralwidget)
+        self.label_2.setGeometry(QtCore.QRect(110, 20, 621, 20))
+        font = QtGui.QFont()
+        font.setFamily("Courier New")
+        font.setPointSize(14)
+        font.setBold(True)
+        font.setWeight(75)
+        self.label_2.setFont(font)
+        self.label_2.setObjectName("label_2")
+        self.Classify = QtWidgets.QPushButton(self.centralwidget)
+        self.Classify.setGeometry(QtCore.QRect(160, 450, 151, 51))
+        self.Classify.setObjectName("Classify")
+        self.label = QtWidgets.QLabel(self.centralwidget)
+        self.label.setGeometry(QtCore.QRect(430, 370, 111, 16))
+        self.label.setObjectName("label")
+        self.Training = QtWidgets.QPushButton(self.centralwidget)
+        self.Training.setGeometry(QtCore.QRect(400, 450, 151, 51))
+        self.Training.setObjectName("Training")
+        self.textEdit = QtWidgets.QTextEdit(self.centralwidget)
+        self.textEdit.setGeometry(QtCore.QRect(400, 390, 211, 51))
+        self.textEdit.setObjectName("textEdit")
+        MainWindow.setCentralWidget(self.centralwidget)
+        self.menubar = QtWidgets.QMenuBar(MainWindow)
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 800, 26))
+        self.menubar.setObjectName("menubar")
+        MainWindow.setMenuBar(self.menubar)
+        self.statusbar = QtWidgets.QStatusBar(MainWindow)
+        self.statusbar.setObjectName("statusbar")
+        MainWindow.setStatusBar(self.statusbar)
 
-# Set dataset directory
-directory = r'dataset'
-categories = ['Bengin cases', 'Malignant cases', 'Normal cases']
+        self.retranslateUi(MainWindow)
+        QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
-# Preprocessing images
-img_size = 256
-data = []
+        self.BrowseImage.clicked.connect(self.loadImage)
 
-for category in categories:
-    category_path = os.path.join(directory, category)
-    class_num = categories.index(category)
+        self.Classify.clicked.connect(self.classifyFunction)
 
-    for file in os.listdir(category_path):
-        file_path = os.path.join(category_path, file)
-        img = cv2.imread(file_path, 0)  # Read in grayscale
-        if img is not None:
-            img = cv2.resize(img, (img_size, img_size))
-            data.append([img, class_num])
+        self.Training.clicked.connect(self.trainingFunction)        
 
-# Shuffle and separate features (X) and labels (y)
-random.shuffle(data)
-X = np.array([item[0] for item in data]).reshape(-1, img_size, img_size, 1)
-y = np.array([item[1] for item in data])
+    def retranslateUi(self, MainWindow):
+        _translate = QtCore.QCoreApplication.translate
+        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        self.BrowseImage.setText(_translate("MainWindow", "Browse Image"))
+        self.label_2.setText(_translate("MainWindow", "            COVID-19 DETECTION"))
+        self.Classify.setText(_translate("MainWindow", "Classify"))
+        self.label.setText(_translate("MainWindow", "Recognized Class"))
+        self.Training.setText(_translate("MainWindow", "Training"))
 
-# Normalize X
-X = X / 255.0
+    def loadImage(self):
+        fileName, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Select Image", "", "Image Files (*.png *.jpg *jpeg *.bmp);;All Files (*)") # Ask for file
+        if fileName: # If the user gives a file
+            print(fileName)
+            self.file=fileName
+            pixmap = QtGui.QPixmap(fileName) # Setup pixmap with the provided image
+            pixmap = pixmap.scaled(self.imageLbl.width(), self.imageLbl.height(), QtCore.Qt.KeepAspectRatio) # Scale pixmap
+            self.imageLbl.setPixmap(pixmap) # Set the pixmap onto the label
+            self.imageLbl.setAlignment(QtCore.Qt.AlignCenter) # Align the label to center
 
-# Train-test split
-X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.25, random_state=10)
+    def classifyFunction(self):
+        json_file = open('model.json', 'r')
+        loaded_model_json = json_file.read()
+        json_file.close()
+        loaded_model = model_from_json(loaded_model_json)
+        # load weights into new model
+        loaded_model.load_weights("model.h5")
+        #loaded_model.load_weights("ResNet50-ft-10.model")
+        print("Loaded model from disk");
+        label=["Covid","Normal"]
+        path2=self.file
+        print(path2)
+        ########################
+        test_image = image.load_img(path2, target_size = (128, 128))        
+        test_image = image.img_to_array(test_image)
+        test_image = np.expand_dims(test_image, axis = 0)
+        result = loaded_model.predict(test_image)
+        print("Result",result)
+        fresult=np.max(result)
+        label2=label[result.argmax()]
+        print("Label",label2)
+        self.textEdit.setText(label2)
 
-# Apply SMOTE to balance the training data
-X_train_flat = X_train.reshape(X_train.shape[0], -1)  # Flatten for SMOTE
-smote = SMOTE()
-X_train_sampled, y_train_sampled = smote.fit_resample(X_train_flat, y_train)
-X_train_sampled = X_train_sampled.reshape(X_train_sampled.shape[0], img_size, img_size, 1)  # Reshape back
+    def trainingFunction(self):
+        self.textEdit.setText("Training under process...")
+        #basic cnn
+        model = Sequential()
+        model.add(Conv2D(32, kernel_size = (3, 3), activation='relu', input_shape=(128,128, 3)))
+        model.add(MaxPooling2D(pool_size=(2,2)))
+        model.add(BatchNormalization())
+        model.add(Conv2D(64, kernel_size=(3,3), activation='relu'))
+        model.add(MaxPooling2D(pool_size=(2,2)))
+        model.add(BatchNormalization())
+        model.add(Conv2D(64, kernel_size=(3,3), activation='relu'))
+        model.add(MaxPooling2D(pool_size=(2,2)))
+        model.add(BatchNormalization())
+        model.add(Conv2D(96, kernel_size=(3,3), activation='relu'))
+        model.add(MaxPooling2D(pool_size=(2,2)))
+        model.add(BatchNormalization())
+        model.add(Conv2D(32, kernel_size=(3,3), activation='relu'))
+        model.add(MaxPooling2D(pool_size=(2,2)))
+        model.add(BatchNormalization())
+        model.add(Dropout(0.2))
+        model.add(Flatten())
+        model.add(Dense(128, activation='relu'))
+        model.add(Dropout(0.3))
+        model.add(Dense(2, activation = 'softmax'))
 
-# Data generators
-train_datagen = ImageDataGenerator()
-val_datagen = ImageDataGenerator()
-train_generator = train_datagen.flow(X_train_sampled, y_train_sampled, batch_size=8, shuffle=True)
-validation_generator = val_datagen.flow(X_valid, y_valid, batch_size=8, shuffle=True)
+        model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = ['accuracy'])
 
-# Load pre-trained ResNet50 model
-resnet_base = ResNet50(weights=None, include_top=False, input_shape=X_train.shape[1:])
-for layer in resnet_base.layers:
-    layer.trainable = False  # Freeze pre-trained layers
 
-# Build model
-model = Sequential([
-    resnet_base,
-    Flatten(),
-    Dense(128, activation='relu'),
-    Dense(3, activation='softmax')  # Assuming 3 categories
-])
-model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-model.summary()
 
-# Training
-callback = EarlyStopping(monitor='val_loss', patience=3)
-history = model.fit(train_generator, epochs=20, validation_data=validation_generator, callbacks=[callback])
+        train_datagen = ImageDataGenerator(rescale = None,
+                                           shear_range = 0.2,
+                                           zoom_range = 0.2,
+                                           horizontal_flip = True)
 
-# Save the model
-model_save_path = "lung_cancer_detection_model.h5"
-model.save(model_save_path)
-print(f"Model saved to {model_save_path}")
+        test_datagen = ImageDataGenerator(rescale = 1./255)
 
-# Evaluation
-y_pred = model.predict(X_valid, verbose=1)
-y_pred_bool = np.argmax(y_pred, axis=1)
-print("Classification Report:")
-print(classification_report(y_valid, y_pred_bool))
-print("\nConfusion Matrix:")
-print(confusion_matrix(y_true=y_valid, y_pred=y_pred_bool))
+        training_set = train_datagen.flow_from_directory('F:\Data Analytics\Day_29\TrainingDataset',
+                                                         target_size = (128, 128),
+                                                         batch_size = 8,
+                                                         class_mode = 'categorical')
+        #print(test_datagen);
+        labels = (training_set.class_indices)
+        print(labels)
+        
 
-# Visualization
-plt.figure(figsize=(12, 6))
-plt.plot(history.history['accuracy'], label='Train')
-plt.plot(history.history['val_accuracy'], label='Validation')
-plt.title('Model Accuracy')
-plt.ylabel('Accuracy')
-plt.xlabel('Epoch')
-plt.legend()
-plt.show()
+        test_set = test_datagen.flow_from_directory('F:\Data Analytics\Day_29\TestingDataset',
+                                                    target_size = (128, 128),
+                                                    batch_size = 8,
+                                                    class_mode = 'categorical')
 
-plt.figure(figsize=(12, 6))
-plt.plot(history.history['loss'], label='Train')
-plt.plot(history.history['val_loss'], label='Validation')
-plt.title('Model Loss')
-plt.ylabel('Loss')
-plt.xlabel('Epoch')
-plt.legend()
-plt.show()
+        labels2 = (test_set.class_indices)
+        print(labels2)
+        #self.textEdit.setText(labels2)
+
+        model.fit_generator(training_set,
+                                 steps_per_epoch = 100,
+                                 epochs = 10,
+                                 validation_data = test_set,
+                                 validation_steps = 125)
+
+
+        # Part 3 - Making new predictions
+
+        model_json=model.to_json()
+        with open("model.json", "w") as json_file:
+            json_file.write(model_json)
+        # serialize weights to HDF5
+            model.save_weights("model.h5")
+            print("Saved model to disk")
+            self.textEdit.setText("Saved model to disk")
+        
+        
+        
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    MainWindow = QtWidgets.QMainWindow()
+    ui = Ui_MainWindow()
+    ui.setupUi(MainWindow)
+    MainWindow.show()
+    sys.exit(app.exec_())
+
